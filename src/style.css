@@ -1,0 +1,323 @@
+:root {
+  --bg: #eef0f2;
+  --panel: #e3e6ea;
+  --panel-2: #d5d9dd;
+  --border: #c5cad0;
+  --text: #1f2937;
+  --text-dim: #64748b;
+  --accent: #3b82f6;
+  --accent-soft: rgba(59, 130, 246, 0.12);
+  --danger: #ef4444;
+
+  color-scheme: light;
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input[type='number'],
+input[type='text'] {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+input[type='color'] {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  height: 28px;
+  cursor: pointer;
+}
+
+/* Layout */
+.app-shell {
+  display: grid;
+  height: 100%;
+  grid-template-rows: 48px 1fr 26px;
+  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  grid-template-areas:
+    'toolbar toolbar toolbar'
+    'tree viewport properties'
+    'status status status';
+}
+
+.toolbar {
+  grid-area: toolbar;
+}
+
+.scene-tree {
+  grid-area: tree;
+}
+
+.viewport {
+  grid-area: viewport;
+}
+
+.properties {
+  grid-area: properties;
+}
+
+.status-bar {
+  grid-area: status;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar .brand {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.toolbar .tools,
+.toolbar .actions {
+  display: flex;
+  gap: 6px;
+}
+
+.toolbar .actions {
+  margin-left: auto;
+}
+
+.tool {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.tool:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.tool.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: #1d4ed8;
+}
+
+.tool.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Panels */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.panel__header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+
+.panel__body {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 14px;
+}
+
+/* Scene tree */
+.scene-tree {
+  border-right: 1px solid var(--border);
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tree-row:hover {
+  background: var(--panel-2);
+}
+
+.tree-row.selected {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+}
+
+.tree-row .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
+.icon-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.icon-btn.danger:hover {
+  color: var(--danger);
+}
+
+.empty-state {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Properties */
+.properties {
+  border-left: 1px solid var(--border);
+}
+
+.field {
+  margin-bottom: 12px;
+}
+
+.field > label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.field .row {
+  display: flex;
+  gap: 6px;
+}
+
+.field .row .col {
+  flex: 1;
+  min-width: 0;
+}
+
+.field .row .col > span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.input-with-unit input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.unit {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* Viewport */
+.viewport {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.viewport canvas {
+  display: block;
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.status-bar .spacer {
+  flex: 1;
+}
