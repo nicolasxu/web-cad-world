@@ -1,9 +1,23 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useEditorStore } from '../stores/editor'
+import type { Part } from '../model'
 
 const store = useEditorStore()
-const { objects, selectedId } = storeToRefs(store)
+const { parts, selectedId } = storeToRefs(store)
+
+function featureLabel(part: Part): string {
+  const feature = part.features[0]
+  if (!feature) return 'empty'
+  switch (feature.kind) {
+    case 'primitive':
+      return feature.primitive
+    case 'extrude':
+      return 'extrude'
+    case 'revolve':
+      return 'revolve'
+  }
+}
 </script>
 
 <template>
@@ -11,31 +25,27 @@ const { objects, selectedId } = storeToRefs(store)
     <div class="panel__header">Scene</div>
     <div class="panel__body">
       <div
-        v-for="object in objects"
-        :key="object.id"
+        v-for="part in parts"
+        :key="part.id"
         class="tree-row"
-        :class="{ selected: selectedId === object.id }"
-        @click="store.selectObject(object.id)"
+        :class="{ selected: selectedId === part.id }"
+        @click="store.selectPart(part.id)"
       >
-        <span class="badge">{{ object.type }}</span>
-        <span class="name">{{ object.name }}</span>
+        <span class="badge">{{ featureLabel(part) }}</span>
+        <span class="name">{{ part.name }}</span>
         <button
           class="icon-btn"
-          :title="object.visible ? 'Hide' : 'Show'"
-          @click.stop="store.toggleVisibility(object.id)"
+          :title="part.visible ? 'Hide' : 'Show'"
+          @click.stop="store.toggleVisibility(part.id)"
         >
-          {{ object.visible ? '👁' : '◌' }}
+          {{ part.visible ? '👁' : '◌' }}
         </button>
-        <button
-          class="icon-btn danger"
-          title="Delete"
-          @click.stop="store.removeObject(object.id)"
-        >
+        <button class="icon-btn danger" title="Delete" @click.stop="store.removePart(part.id)">
           ✕
         </button>
       </div>
 
-      <div v-if="objects.length === 0" class="empty-state">
+      <div v-if="parts.length === 0" class="empty-state">
         Empty scene.<br />Use the toolbar to add primitives.
       </div>
     </div>

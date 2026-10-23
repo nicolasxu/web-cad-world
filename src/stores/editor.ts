@@ -1,8 +1,9 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { Dimensions, PrimitiveType, SceneObject, ToolId, Vec3 } from '../types'
+import type { Feature, Part, PrimitiveKind, Vec3 } from '../model'
+import type { ToolId } from '../tools/types'
 
-const PRIMITIVE_LABELS: Record<PrimitiveType, string> = {
+const PRIMITIVE_LABELS: Record<PrimitiveKind, string> = {
   box: 'Box',
   sphere: 'Sphere',
   cylinder: 'Cylinder',
@@ -21,22 +22,23 @@ const PALETTE = [
 
 const SPAWN_SPACING = 2.5
 const SPAWN_PER_ROW = 4
+const MAX_HISTORY = 100
 
 let idCounter = 0
 
-function nextId(): string {
+function nextId(prefix: string): string {
   idCounter += 1
-  return `object-${idCounter}`
+  return `${prefix}-${idCounter}`
 }
 
-function defaultDimensions(type: PrimitiveType): Dimensions {
-  switch (type) {
+function defaultSize(kind: PrimitiveKind): Vec3 {
+  switch (kind) {
     case 'box':
-      return { width: 2, height: 2, depth: 2 }
+      return { x: 2, y: 2, z: 2 }
     case 'sphere':
-      return { width: 2, height: 2, depth: 2 }
+      return { x: 2, y: 2, z: 2 }
     case 'cylinder':
-      return { width: 2, height: 3, depth: 2 }
+      return { x: 2, y: 3, z: 2 }
   }
 }
 
@@ -44,100 +46,174 @@ function defaultColor(index: number): string {
   return PALETTE[index % PALETTE.length] ?? '#3b82f6'
 }
 
-function spawnPosition(index: number, dimensions: Dimensions): Vec3 {
+function spawnPosition(index: number, size: Vec3): Vec3 {
   const column = index % SPAWN_PER_ROW
   const row = Math.floor(index / SPAWN_PER_ROW)
   return {
     x: (column - (SPAWN_PER_ROW - 1) / 2) * SPAWN_SPACING,
-    y: dimensions.height / 2,
+    y: size.y / 2,
     z: row * SPAWN_SPACING,
   }
 }
 
+function primitiveOf(part: Part): PrimitiveKind | null {
+  const feature = part.features[0]
+  return feature && feature.kind === 'primitive' ? feature.primitive : null
+}
+
+function clonePart(part: Part): Part {
+  return JSON.parse(JSON.stringify(part)) as Part
+}
+
 export const useEditorStore = defineStore('editor', () => {
-  const objects = ref<SceneObject[]>([])
+  const parts = ref<Part[]>([])
   const selectedId = ref<string | null>(null)
   const activeTool = ref<ToolId>('select')
 
-  const selectedObject = computed<SceneObject | null>(() => {
-    return objects.value.find((object) => object.id === selectedId.value) ?? null
-  })
+  const undoStack = ref<Part[][]>([])
+  const redoStack = ref<Part[][]>([])
 
-  const objectCount = computed(() => objects.value.length)
+  const selectedPart = computed<Part | null>(
+    () => parts.value.find((part) => part.id === selectedId.value) ?? null,
+  )
+  const partCount = computed(() => parts.value.length)
+  const canUndo = computed(() => undoStack.value.length > 0)
+  const canRedo = computed(() => redoStack.value.length > 0)
+
+  function snapshot(): Part[] {
+    return parts.value.map((part) => clonePart(part))
+  }
+
+  function recordHistory(): void {
+    undoStack.value.push(snapshot())
+    if (undoStack.value.length > MAX_HISTORY) undoStack.value.shift()
+    redoStack.value = []
+  }
 
   function setTool(tool: ToolId): void {
     activeTool.value = tool
   }
 
-  function addObject(type: PrimitiveType): SceneObject {
-    const index = objects.value.length
-    const dimensions = defaultDimensions(type)
-    const object: SceneObject = {
-      id: nextId(),
-      name: `${PRIMITIVE_LABELS[type]} ${objects.value.filter((o) => o.type === type).length + 1}`,
-      type,
-      position: spawnPosition(index, dimensions),
-      dimensions,
-      color: defaultColor(index),
-      visible: true,
-    }
-    objects.value.push(object)
-    selectedId.value = object.id
-    activeTool.value = type
-    return object
-  }
-
-  function selectObject(id: string | null): void {
+  function selectPart(id: string | null): void {
     selectedId.value = id
   }
 
-  function updateObject(id: string, patch: Partial<Omit<SceneObject, 'id' | 'type'>>): void {
-    const object = objects.value.find((o) => o.id === id)
-    if (object) Object.assign(object, patch)
+  function addPart(part: Part): Part {
+    recordHistory()
+    parts.value.push(part)
+    selectedId.value = part.id
+    return part
   }
 
-  function removeObject(id: string): void {
-    objects.value = objects.value.filter((o) => o.id !== id)
+  function addPrimitive(kind: PrimitiveKind): Part {
+    const index = parts.value.length
+    const size = defaultSize(kind)
+    const count = parts.value.filter((part) => primitiveOf(part) === kind).length + 1
+    const part: Part = {
+      id: nextId('part'),
+      name: `${PRIMITIVE_LABELS[kind]} ${count}`,
+      features: [{ id: nextId('feature'), kind: 'primitive', primitive: kind, size }],
+      transform: {
+        position: spawnPosition(index, size),
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: { x: 1, y: 1, z: 1 },
+      },
+      color: defaultColor(index),
+      visible: true,
+    }
+    return addPart(part)
+  }
+
+  function updatePart(id: string, patch: Partial<Omit<Part, 'id'>>): void {
+    const part = parts.value.find((p) => p.id === id)
+    if (!part) return
+    recordHistory()
+    Object.assign(part, patch)
+  }
+
+  function updateFeature(partId: string, featureId: string, patch: Partial<Feature>): void {
+    const part = parts.value.find((p) => p.id === partId)
+    const feature = part?.features.find((f) => f.id === featureId)
+    if (!part || !feature) return
+    recordHistory()
+    Object.assign(feature, patch)
+  }
+
+  function removePart(id: string): void {
+    recordHistory()
+    parts.value = parts.value.filter((p) => p.id !== id)
     if (selectedId.value === id) selectedId.value = null
   }
 
-  function duplicateObject(id: string): void {
-    const source = objects.value.find((o) => o.id === id)
+  function duplicatePart(id: string): void {
+    const source = parts.value.find((p) => p.id === id)
     if (!source) return
-    const copy: SceneObject = {
-      ...source,
-      id: nextId(),
-      name: `${source.name} copy`,
-      position: { ...source.position, x: source.position.x + SPAWN_SPACING },
+    recordHistory()
+    const copy = clonePart(source)
+    copy.id = nextId('part')
+    copy.name = `${source.name} copy`
+    copy.features = copy.features.map((feature) => ({ ...feature, id: nextId('feature') }))
+    copy.transform = {
+      ...copy.transform,
+      position: { ...copy.transform.position, x: copy.transform.position.x + SPAWN_SPACING },
     }
-    objects.value.push(copy)
+    parts.value.push(copy)
     selectedId.value = copy.id
   }
 
   function toggleVisibility(id: string): void {
-    const object = objects.value.find((o) => o.id === id)
-    if (object) object.visible = !object.visible
+    const part = parts.value.find((p) => p.id === id)
+    if (!part) return
+    recordHistory()
+    part.visible = !part.visible
   }
 
   function clearScene(): void {
-    objects.value = []
+    recordHistory()
+    parts.value = []
     selectedId.value = null
     activeTool.value = 'select'
   }
 
+  function undo(): void {
+    const previous = undoStack.value.pop()
+    if (!previous) return
+    redoStack.value.push(snapshot())
+    parts.value = previous
+    if (selectedId.value && !previous.some((part) => part.id === selectedId.value)) {
+      selectedId.value = null
+    }
+  }
+
+  function redo(): void {
+    const next = redoStack.value.pop()
+    if (!next) return
+    undoStack.value.push(snapshot())
+    parts.value = next
+    if (selectedId.value && !next.some((part) => part.id === selectedId.value)) {
+      selectedId.value = null
+    }
+  }
+
   return {
-    objects,
+    parts,
     selectedId,
     activeTool,
-    selectedObject,
-    objectCount,
+    selectedPart,
+    partCount,
+    canUndo,
+    canRedo,
     setTool,
-    addObject,
-    selectObject,
-    updateObject,
-    removeObject,
-    duplicateObject,
+    selectPart,
+    addPart,
+    addPrimitive,
+    updatePart,
+    updateFeature,
+    removePart,
+    duplicatePart,
     toggleVisibility,
     clearScene,
+    undo,
+    redo,
   }
 })
